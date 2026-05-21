@@ -41,6 +41,10 @@ data/exports/
 data/vector_db/
 data/historical_db/
 data/historical_documents/
+data/_test_native/
+
+# Backup files
+*.bak
 
 # Logs
 *.log
