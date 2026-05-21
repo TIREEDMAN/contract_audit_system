@@ -1,0 +1,1824 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>合同条款智能审计</title>
+<style>
+  :root {
+    --bg: oklch(97% 0.003 80);
+    --surface: oklch(100% 0 0);
+    --surface-2: oklch(98% 0.003 80);
+    --surface-3: oklch(95% 0.003 80);
+    --border: oklch(91% 0 0);
+    --border-soft: oklch(94% 0 0);
+    --text: oklch(15% 0 0);
+    --text-2: oklch(40% 0 0);
+    --text-3: oklch(60% 0 0);
+    --accent: oklch(55% 0.18 255);
+    --accent-hover: oklch(48% 0.18 255);
+    --accent-soft: oklch(55% 0.18 255 / 0.10);
+    --accent-veil: oklch(55% 0.18 255 / 0.18);
+    --high: oklch(50% 0.18 25);
+    --high-soft: oklch(96% 0.03 25);
+    --high-mark: oklch(85% 0.08 25);
+    --mid: oklch(55% 0.13 70);
+    --mid-soft: oklch(97% 0.04 80);
+    --mid-mark: oklch(88% 0.10 75);
+    --low: oklch(48% 0.13 150);
+    --low-soft: oklch(96% 0.03 150);
+    --review: oklch(45% 0.18 290);
+    --review-soft: oklch(96% 0.04 290);
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    --t-fast: 150ms var(--ease);
+    --t: 220ms var(--ease);
+    --shadow-lift: 0 10px 32px -12px oklch(15% 0 0 / 0.12), 0 2px 6px oklch(15% 0 0 / 0.04);
+    --shadow-modal: 0 24px 64px -16px oklch(15% 0 0 / 0.22);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", "Microsoft YaHei", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    font-size: 15px;
+    min-height: 100vh;
+  }
+  h1, h2, h3, h4 {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", sans-serif;
+    margin: 0;
+    letter-spacing: -0.015em;
+  }
+  ::selection { background: var(--accent-veil); }
+  button { font: inherit; }
+
+  /* ============ Top Nav ============ */
+  .nav {
+    position: sticky; top: 0; z-index: 50;
+    background: oklch(97% 0.003 80 / 0.82);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .nav-inner {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 14px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .brand {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .brand-mark {
+    width: 24px; height: 24px;
+    border-radius: 7px;
+    background: var(--text);
+    display: grid; place-items: center;
+    color: white; font-size: 13px; font-weight: 600;
+    letter-spacing: 0;
+  }
+  .brand-tag {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-left: 4px;
+    font-weight: 400;
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+  }
+  .nav-back {
+    font-size: 13px;
+    color: var(--text-2);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 999px;
+    display: flex; align-items: center; gap: 4px;
+    transition: background var(--t-fast), color var(--t-fast);
+  }
+  .nav-back:hover { background: var(--surface-3); color: var(--text); }
+  .nav-actions { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+  .nav-btn {
+    font-size: 13px;
+    padding: 7px 14px;
+    border-radius: 999px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: background var(--t-fast), color var(--t-fast);
+  }
+  .nav-btn:hover { background: var(--surface-3); color: var(--text); }
+
+  .container { max-width: 1320px; margin: 0 auto; padding: 0 32px; }
+
+  /* ============ View System ============ */
+  .view { display: none; }
+  .view.active { display: block; animation: rise 320ms var(--ease); }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ============ Landing View ============ */
+  .landing {
+    min-height: calc(100vh - 60px);
+    display: grid;
+    place-items: center;
+    padding: 48px 24px 96px;
+  }
+  .landing-inner {
+    width: 100%;
+    max-width: 640px;
+    text-align: center;
+  }
+  .landing h1 {
+    font-size: clamp(34px, 5vw, 48px);
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+    margin-bottom: 16px;
+  }
+  .landing-sub {
+    font-size: 17px;
+    color: var(--text-2);
+    line-height: 1.6;
+    margin-bottom: 48px;
+    max-width: 520px;
+    margin-left: auto; margin-right: auto;
+  }
+
+  .upload-card {
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: 20px;
+    padding: 8px;
+    box-shadow: var(--shadow-lift);
+  }
+  .upload-zone {
+    position: relative;
+    border: 1.5px dashed var(--border);
+    border-radius: 14px;
+    padding: 56px 24px;
+    text-align: center;
+    cursor: pointer;
+    background: var(--surface-2);
+    transition: border-color var(--t-fast), background var(--t-fast);
+  }
+  .upload-zone:hover, .upload-zone.drag {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .upload-icon {
+    width: 56px; height: 56px;
+    margin: 0 auto 16px;
+    border-radius: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    display: grid; place-items: center;
+    color: var(--text-2);
+  }
+  .upload-icon svg { width: 26px; height: 26px; }
+  .upload-title { font-size: 16px; font-weight: 500; color: var(--text); }
+  .upload-hint { font-size: 13px; color: var(--text-3); margin-top: 6px; }
+
+  .file-pill {
+    margin: 16px 8px 8px;
+    padding: 12px 16px;
+    background: var(--surface-2); border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .file-pill-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center; flex-shrink: 0;
+  }
+  .file-pill-icon svg { width: 18px; height: 18px; }
+  .file-pill-name {
+    flex: 1; min-width: 0;
+    font-size: 14px; font-weight: 500;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .file-pill-size { font-size: 12px; color: var(--text-3); margin-right: 8px; }
+  .file-pill-remove {
+    width: 28px; height: 28px;
+    border: none; background: transparent; cursor: pointer;
+    border-radius: 50%; color: var(--text-3);
+    display: grid; place-items: center;
+    transition: background var(--t-fast), color var(--t-fast);
+  }
+  .file-pill-remove:hover { background: var(--surface-3); color: var(--text); }
+  .file-pill-remove svg { width: 14px; height: 14px; }
+
+  .start-area {
+    margin-top: 24px;
+    display: flex; justify-content: center;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center; justify-content: center;
+    gap: 8px;
+    padding: 12px 22px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+    transition: background var(--t-fast), color var(--t-fast), opacity var(--t-fast);
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary {
+    background: var(--accent); color: white;
+    padding: 14px 28px; font-size: 15px;
+    min-width: 200px;
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { background: var(--surface-3); }
+  .btn-accent {
+    background: var(--accent-soft); color: var(--accent);
+  }
+  .btn-accent:hover { background: var(--accent-veil); }
+  .btn-text {
+    background: transparent; color: var(--accent);
+    padding: 8px 12px;
+  }
+  .btn-text:hover { background: var(--accent-soft); }
+
+  .landing-foot {
+    margin-top: 36px;
+    font-size: 12px;
+    color: var(--text-3);
+    display: flex; justify-content: center; gap: 18px;
+  }
+  .landing-foot span { display: inline-flex; align-items: center; gap: 6px; }
+  .landing-foot span::before {
+    content: "";
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: var(--text-3);
+  }
+  .landing-foot span:first-child::before { display: none; }
+
+  /* ============ Review View ============ */
+  .review { padding: 32px 0 96px; }
+
+  /* Doc header */
+  .doc-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+    padding: 8px 0 24px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .doc-meta { flex: 1; min-width: 0; }
+  .doc-title {
+    font-size: clamp(22px, 3vw, 28px);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin-bottom: 6px;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .doc-sub {
+    font-size: 13px;
+    color: var(--text-3);
+    display: flex; gap: 14px; flex-wrap: wrap;
+  }
+  .doc-sub span { display: inline-flex; align-items: center; gap: 5px; }
+  .doc-sub b {
+    color: var(--text); font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .doc-actions {
+    display: flex;
+    align-items: center; gap: 10px;
+    flex-wrap: wrap; flex-shrink: 0;
+  }
+
+  /* Summary banner */
+  .summary-banner {
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: 16px;
+    padding: 24px 28px;
+    margin-bottom: 28px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 24px;
+    align-items: center;
+  }
+  @media (max-width: 720px) {
+    .summary-banner { grid-template-columns: 1fr; }
+  }
+  .summary-headline {
+    display: flex;
+    align-items: center; gap: 14px;
+    flex-wrap: wrap;
+  }
+  .summary-level {
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.022em;
+    line-height: 1.05;
+  }
+  .summary-level.high { color: var(--high); }
+  .summary-level.mid { color: var(--mid); }
+  .summary-level.low { color: var(--low); }
+  .summary-stats {
+    display: flex; gap: 28px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .summary-stat-v {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .summary-stat-k {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-top: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 500;
+  }
+
+  /* Progress */
+  .progress-bar {
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    padding: 14px 20px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .progress-bar.done { display: none; }
+  .progress-spinner {
+    width: 18px; height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 700ms linear infinite;
+    flex-shrink: 0;
+  }
+  .progress-text { flex: 1; font-size: 13px; color: var(--text-2); }
+  .progress-text b { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .progress-track {
+    height: 4px;
+    background: var(--surface-3);
+    border-radius: 2px;
+    overflow: hidden;
+    flex: 1.4;
+  }
+  .progress-fill {
+    height: 100%; width: 0;
+    background: var(--accent);
+    transition: width 280ms var(--ease);
+    border-radius: 2px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ============ Doc + Comments grid ============ */
+  .doc-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    gap: 28px;
+    align-items: start;
+  }
+  @media (max-width: 980px) {
+    .doc-grid { grid-template-columns: 1fr; }
+  }
+
+  .doc-paper {
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: 16px;
+    padding: 40px 48px;
+    min-height: 60vh;
+  }
+  @media (max-width: 720px) {
+    .doc-paper { padding: 28px 24px; }
+  }
+
+  .doc-body {
+    font-size: 15.5px;
+    line-height: 1.85;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .clause-risk {
+    display: inline;
+    padding: 2px 0;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background var(--t-fast);
+  }
+  .clause-risk.high {
+    background: var(--high-soft);
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    border-left: 3px solid var(--high);
+    padding-left: 6px;
+    margin-left: -4px;
+  }
+  .clause-risk.mid {
+    background: var(--mid-soft);
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    border-left: 3px solid var(--mid);
+    padding-left: 6px;
+    margin-left: -4px;
+  }
+  .clause-risk.replaced {
+    background: var(--low-soft);
+    border-left-color: var(--low);
+  }
+  .clause-risk:hover { filter: brightness(0.97); }
+  .clause-risk.active {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* ============ Comments column ============ */
+  .comments {
+    position: relative;
+    align-self: stretch;
+  }
+  .comments-inner {
+    position: sticky; top: 80px;
+    display: flex; flex-direction: column;
+    gap: 12px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    padding-right: 4px;
+    padding-bottom: 24px;
+  }
+  .comments-inner::-webkit-scrollbar { width: 6px; }
+  .comments-inner::-webkit-scrollbar-thumb {
+    background: var(--border); border-radius: 3px;
+  }
+  .comments-empty {
+    padding: 40px 20px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-3);
+  }
+
+  .comment {
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    padding: 16px;
+    cursor: pointer;
+    transition: border-color var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
+  }
+  .comment:hover {
+    border-color: var(--border);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-lift);
+  }
+  .comment.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .comment-head {
+    display: flex;
+    align-items: center; gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .comment-body {
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--text-2);
+  }
+  .comment-body strong {
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 4px;
+    margin-top: 8px;
+  }
+  .comment-body strong:first-child { margin-top: 0; }
+  .comment-body p {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .revision-box {
+    margin-top: 12px;
+    padding: 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--text);
+    white-space: pre-wrap;
+  }
+  .revision-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+  .revision-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .revision-actions .btn {
+    padding: 7px 14px;
+    font-size: 12px;
+    border-radius: 999px;
+  }
+
+  /* ============ Chips ============ */
+  .chip {
+    display: inline-flex;
+    align-items: center; gap: 4px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 500;
+    background: var(--surface-2);
+    color: var(--text-2);
+    border: 1px solid var(--border-soft);
+    line-height: 1.4;
+  }
+  .chip.high { background: var(--high-soft); color: var(--high); border-color: transparent; }
+  .chip.mid { background: var(--mid-soft); color: var(--mid); border-color: transparent; }
+  .chip.low { background: var(--low-soft); color: var(--low); border-color: transparent; }
+  .chip.review { background: var(--review-soft); color: var(--review); border-color: transparent; }
+  .chip-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .mono {
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    color: var(--text-2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ============ Drawer / Modal / Toast ============ */
+  .mask {
+    position: fixed; inset: 0;
+    background: oklch(15% 0 0 / 0.4);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+    opacity: 0; visibility: hidden;
+    transition: opacity var(--t), visibility var(--t);
+    z-index: 90;
+  }
+  .mask.show { opacity: 1; visibility: visible; }
+  .drawer {
+    position: fixed; top: 0; right: 0;
+    width: min(560px, 92vw); height: 100%;
+    background: var(--bg);
+    box-shadow: var(--shadow-modal);
+    transform: translateX(100%);
+    transition: transform 300ms var(--ease);
+    z-index: 91;
+    display: flex; flex-direction: column;
+  }
+  .drawer.show { transform: translateX(0); }
+  .drawer-h {
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--border-soft);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .drawer-h h3 { font-size: 16px; font-weight: 600; }
+  .drawer-count { font-size: 12px; color: var(--text-3); }
+  .drawer-close {
+    margin-left: auto;
+    width: 32px; height: 32px;
+    border: none; background: transparent; cursor: pointer;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    color: var(--text-3);
+    transition: background var(--t-fast), color var(--t-fast);
+    font-size: 22px; line-height: 1;
+  }
+  .drawer-close:hover { background: var(--surface-3); color: var(--text); }
+  .drawer-b {
+    flex: 1; overflow-y: auto; padding: 20px 28px;
+  }
+  .hist-item {
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .hi-meta { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+  .hi-c {
+    font-size: 13px; line-height: 1.65; color: var(--text);
+    margin-bottom: 10px; white-space: pre-wrap;
+  }
+  .hi-s {
+    font-size: 13px; color: var(--text-2);
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border-radius: 8px;
+    line-height: 1.6;
+  }
+
+  .modal {
+    position: fixed; inset: 0;
+    display: none;
+    place-items: center;
+    z-index: 100;
+    padding: 24px;
+  }
+  .modal.show { display: grid; }
+  .modal-card {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: var(--shadow-modal);
+    width: 100%; max-width: 440px;
+    border: 1px solid var(--border-soft);
+  }
+  .modal-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 13px; color: var(--text-2); margin-bottom: 6px; font-weight: 500; }
+  .form-group input, .form-group select {
+    width: 100%; padding: 10px 12px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--surface-2);
+    font-size: 14px; color: var(--text); font-family: inherit;
+    transition: border-color var(--t-fast), box-shadow var(--t-fast);
+  }
+  .form-group input:focus, .form-group select:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .form-hint { font-size: 12px; color: var(--text-3); margin-top: 4px; }
+  .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  .config-status { font-size: 13px; padding: 10px 14px; border-radius: 10px; margin-bottom: 16px; display: none; }
+  .config-status.ok { display: block; background: var(--low-soft); color: var(--low); }
+  .config-status.err { display: block; background: var(--high-soft); color: var(--high); }
+  .health-list { display: grid; gap: 8px; }
+  .health-row {
+    display: flex;
+    align-items: center; justify-content: space-between;
+    padding: 12px 14px;
+    background: var(--surface-2);
+    border-radius: 10px;
+    font-size: 14px;
+  }
+  .h-status {
+    font-size: 12px; font-weight: 500;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .h-ok { color: var(--low); }
+  .h-fail { color: var(--high); }
+  .h-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+  .toast {
+    position: fixed;
+    bottom: 32px; left: 50%;
+    transform: translateX(-50%) translateY(16px);
+    background: oklch(15% 0 0);
+    color: white;
+    padding: 11px 18px;
+    border-radius: 999px;
+    font-size: 13px; font-weight: 500;
+    opacity: 0;
+    transition: opacity var(--t), transform var(--t);
+    pointer-events: none;
+    z-index: 95;
+    box-shadow: var(--shadow-modal);
+    max-width: 90vw; text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.error { background: var(--high); }
+  .toast.success { background: var(--low); }
+
+  /* Source chips */
+  .source-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 999px;
+    font-size: 11px; font-weight: 500;
+    background: var(--surface-3); color: var(--text-3);
+    border: 1px solid var(--border-soft);
+  }
+  .source-chip.agree { background: var(--low-soft); color: var(--low); border-color: transparent; }
+  .source-chip.conflict { background: var(--review-soft); color: var(--review); border-color: transparent; }
+  .source-chip.rule { background: var(--mid-soft); color: var(--mid); border-color: transparent; }
+
+  /* Rule drawer */
+  .rule-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .rule-table th, .rule-table td {
+    text-align: left; padding: 10px 8px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .rule-table th {
+    font-weight: 600; color: var(--text-2); font-size: 12px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    position: sticky; top: 0; background: var(--bg);
+  }
+  .rule-table tr:hover td { background: var(--surface-2); }
+  .rule-table td { color: var(--text); vertical-align: top; }
+  .rule-table .mono { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rule-actions { display: flex; gap: 6px; }
+  .rule-actions button {
+    font-size: 12px; padding: 4px 10px; border-radius: 999px;
+    border: 1px solid var(--border); background: transparent;
+    cursor: pointer; color: var(--text-2);
+    transition: background var(--t-fast), color var(--t-fast);
+  }
+  .rule-actions button:hover { background: var(--surface-3); color: var(--text); }
+  .rule-actions button.danger:hover { background: var(--high-soft); color: var(--high); border-color: var(--high-mark); }
+
+  .rule-form { display: grid; gap: 14px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 12px; font-weight: 600; color: var(--text-2); }
+  .field input, .field textarea, .field select {
+    font: inherit; font-size: 14px;
+    padding: 10px 12px; border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    transition: border-color var(--t-fast), box-shadow var(--t-fast);
+  }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .field textarea { min-height: 80px; resize: vertical; line-height: 1.6; }
+  .field small { font-size: 12px; color: var(--text-3); }
+
+  .test-box {
+    background: var(--surface-2); border: 1px solid var(--border-soft);
+    border-radius: 12px; padding: 16px; margin-bottom: 20px;
+  }
+  .test-result {
+    margin-top: 12px; padding: 12px;
+    background: var(--surface); border-radius: 10px;
+    font-size: 13px; line-height: 1.6;
+  }
+  .test-result.hit { border: 1px solid var(--low); color: var(--low); }
+  .test-result.miss { border: 1px solid var(--border); color: var(--text-3); }
+  .test-result.err { border: 1px solid var(--high); color: var(--high); }
+
+  .rule-hit-box {
+    margin-top: 10px; padding: 10px 12px;
+    background: var(--surface-2); border: 1px solid var(--border-soft);
+    border-radius: 10px; font-size: 12px; line-height: 1.6;
+  }
+  .rule-hit-box strong { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; }
+  .rule-hit-item { margin-top: 6px; padding: 6px 8px; background: var(--surface); border-radius: 6px; }
+
+  .doc-hist-item {
+    background: var(--surface); border: 1px solid var(--border-soft);
+    border-radius: 12px; padding: 16px; margin-bottom: 12px;
+    cursor: pointer;
+    transition: border-color var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
+  }
+  .doc-hist-item:hover {
+    border-color: var(--border);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-lift);
+  }
+  .doc-hist-name { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 8px; }
+  .doc-hist-meta { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .doc-hist-date { font-size: 12px; color: var(--text-3); }
+  .doc-hist-stats { display: flex; gap: 8px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="brand">
+      <span class="brand-mark">合</span>
+      合同条款智能审计<span class="brand-tag">v2.0</span>
+    </div>
+    <button class="nav-back" id="btn-back" style="display:none;">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      重新上传
+    </button>
+    <div class="nav-actions">
+      <button class="nav-btn" id="btn-rules">规则管理</button>
+      <button class="nav-btn" id="btn-documents">历史合同</button>
+      <button class="nav-btn" id="btn-health">运行状态</button>
+      <button class="nav-btn" id="btn-history">采纳库</button>
+      <button class="nav-btn" id="btn-config" title="设置模型和 API Key">设置</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ============ View 1: Landing ============ -->
+<section class="view active" id="view-landing">
+  <div class="landing">
+    <div class="landing-inner">
+      <h1>把合同里的雷，圈出来。</h1>
+      <p class="landing-sub">上传一份合同，LLM 与规则引擎双通道融合，逐条标注风险类型、引用法规、给出可直接替换的修订条款。规则引擎支持可视化管理。</p>
+
+      <div class="upload-card">
+        <input type="file" id="file-input" accept=".txt,.pdf,.docx" style="display:none;">
+        <div class="upload-zone" id="upload-zone">
+          <div class="upload-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <div class="upload-title">拖入或选择合同文件</div>
+          <div class="upload-hint">.txt · .docx · .pdf · 单文件 ≤ 5 MB</div>
+        </div>
+
+        <div class="file-pill" id="file-pill" style="display:none;">
+          <div class="file-pill-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+          </div>
+          <div class="file-pill-name" id="file-pill-name"></div>
+          <div class="file-pill-size mono" id="file-pill-size"></div>
+          <button class="file-pill-remove" id="file-pill-remove" aria-label="移除文件">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="start-area">
+        <button class="btn btn-primary" id="btn-start" disabled>开始审计</button>
+      </div>
+
+      <div class="landing-foot">
+        <span>双通道融合</span>
+        <span>Qwen-Plus</span>
+        <span>P × L × D 半定量评估</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ View 2: Review ============ -->
+<section class="view" id="view-review">
+  <div class="container review">
+
+    <div class="doc-header">
+      <div class="doc-meta">
+        <div class="doc-title" id="rv-title">合同审计报告</div>
+        <div class="doc-sub" id="rv-sub"></div>
+      </div>
+      <div class="doc-actions">
+        <button class="btn btn-primary" id="btn-export-revised">导出修订版</button>
+      </div>
+    </div>
+
+    <div class="summary-banner" id="rv-banner">
+      <div class="summary-headline">
+        <div class="summary-level" id="rv-level">审计中</div>
+        <div class="summary-stats" id="rv-stats"></div>
+      </div>
+    </div>
+
+    <div class="progress-bar" id="rv-progress">
+      <div class="progress-spinner"></div>
+      <div class="progress-text" id="rv-progress-text">正在分析合同结构…</div>
+      <div class="progress-track"><div class="progress-fill" id="rv-progress-fill"></div></div>
+    </div>
+
+    <div class="doc-grid">
+      <div class="doc-paper">
+        <div class="doc-body" id="doc-body">解析中…</div>
+      </div>
+      <div class="comments">
+        <div class="comments-inner" id="comments-list">
+          <div class="comments-empty">审计完成后，问题条款会出现在这里。</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============ Drawer ============ -->
+<div class="mask" id="mask"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="drawer-h">
+    <h3>历史采纳库</h3>
+    <span class="drawer-count" id="drawer-count"></span>
+    <button class="drawer-close" id="drawer-close" aria-label="关闭">×</button>
+  </div>
+  <div class="drawer-b" id="drawer-body"></div>
+</aside>
+
+<!-- ============ Rule Drawer ============ -->
+<div class="mask" id="rule-mask"></div>
+<aside class="drawer" id="rule-drawer" aria-hidden="true">
+  <div class="drawer-h">
+    <h3>规则管理</h3>
+    <span class="drawer-count" id="rule-drawer-count"></span>
+    <button class="drawer-close" id="rule-drawer-close" aria-label="关闭">×</button>
+  </div>
+  <div class="drawer-b" id="rule-drawer-body"></div>
+</aside>
+
+<!-- ============ Document History Drawer ============ -->
+<div class="mask" id="doc-mask"></div>
+<aside class="drawer" id="doc-drawer" aria-hidden="true">
+  <div class="drawer-h">
+    <h3>历史合同</h3>
+    <span class="drawer-count" id="doc-drawer-count"></span>
+    <button class="drawer-close" id="doc-drawer-close" aria-label="关闭">×</button>
+  </div>
+  <div class="drawer-b" id="doc-drawer-body"></div>
+</aside>
+
+<!-- ============ Health Modal ============ -->
+<div class="mask" id="health-mask"></div>
+<div class="modal" id="health-modal">
+  <div class="modal-card">
+    <h3>运行状态</h3>
+    <div class="health-list" id="health-list">
+      <div style="color: var(--text-3); text-align:center; padding: 16px;">检测中…</div>
+    </div>
+    <div style="margin-top: 20px; text-align: right;">
+      <button class="btn btn-ghost" id="health-close">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Config Modal ============ -->
+<div class="mask" id="config-mask"></div>
+<div class="modal" id="config-modal">
+  <div class="modal-card">
+    <h3>模型与 API 配置</h3>
+    <div class="config-status" id="config-status"></div>
+    <div class="form-group">
+      <label for="cfg-api-key">API Key</label>
+      <input type="password" id="cfg-api-key" placeholder="输入您的 API Key" autocomplete="off">
+      <div class="form-hint">留空则保持当前配置。支持智谱 AI(GLM)、OpenAI 兼容接口。</div>
+    </div>
+    <div class="form-group">
+      <label for="cfg-base-url">Base URL</label>
+      <input type="text" id="cfg-base-url" placeholder="https://open.bigmodel.cn/api/paas/v4/">
+      <div class="form-hint">OpenAI 兼容接口的 Base URL</div>
+    </div>
+    <div class="form-group">
+      <label for="cfg-model">模型名称</label>
+      <input type="text" id="cfg-model" placeholder="GLM-4.7-Flash" list="model-suggestions">
+      <datalist id="model-suggestions">
+        <option value="GLM-4.7-Flash">
+        <option value="GLM-4.7-Air">
+        <option value="GLM-4.7-Plus">
+        <option value="gpt-4o-mini">
+        <option value="gpt-4o">
+        <option value="qwen-plus">
+      </datalist>
+      <div class="form-hint">当前使用的模型标识</div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" id="config-close">取消</button>
+      <button class="btn btn-accent" id="config-save">保存配置</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // 后端 API 地址配置
+  // 支持方式（按优先级）:
+  // 1. localStorage 中存储的 audit_api_base（浏览器控制台设置后持久化）
+  // 2. 默认 http://127.0.0.1:8000
+  // 设置示例: localStorage.setItem('audit_api_base', 'http://your-server:8000')
+  const API = localStorage.getItem('audit_api_base') || 'http://127.0.0.1:8000';
+
+  const state = {
+    file: null,
+    jobId: null,
+    filename: "",
+    content: "",
+    clauses: [],
+    replaced: new Set(),
+    status: "pending",
+    progress: {done: 0, total: 0},
+    summary: {},
+    pollTimer: null,
+  };
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+  const levelKey = level => {
+    if (!level) return "mid";
+    const s = String(level);
+    if (s.includes("高")) return "high";
+    if (s.includes("低")) return "low";
+    return "mid";
+  };
+  function toast(msg, type = "") {
+    const el = $("toast");
+    el.textContent = msg;
+    el.className = "toast show " + type;
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => el.className = "toast " + type, 2400);
+  }
+  function showView(name) {
+    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+    $("view-" + name).classList.add("active");
+    $("btn-back").style.display = name === "review" ? "inline-flex" : "none";
+    window.scrollTo({top: 0, behavior: "instant"});
+  }
+  function formatBytes(n) {
+    if (n < 1024) return n + " B";
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+    return (n / (1024 * 1024)).toFixed(2) + " MB";
+  }
+
+  // ====== Landing: file selection ======
+  function setFile(f) {
+    if (!f) {
+      state.file = null;
+      $("file-pill").style.display = "none";
+      $("upload-zone").style.display = "block";
+      $("btn-start").disabled = true;
+      return;
+    }
+    if (f.size > 5 * 1024 * 1024) { toast("文件超过 5 MB", "error"); return; }
+    state.file = f;
+    $("file-pill-name").textContent = f.name;
+    $("file-pill-size").textContent = formatBytes(f.size);
+    $("file-pill").style.display = "flex";
+    $("upload-zone").style.display = "none";
+    $("btn-start").disabled = false;
+  }
+  $("file-input").addEventListener("change", e => {
+    const f = e.target.files[0];
+    if (f) setFile(f);
+    e.target.value = "";
+  });
+  $("file-pill-remove").addEventListener("click", () => setFile(null));
+
+  // 点击上传区域触发文件选择（input 已移出 label，需 JS 代理）
+  $("upload-zone").addEventListener("click", () => $("file-input").click());
+
+  const dropZone = $("upload-zone");
+  ["dragenter", "dragover", "dragleave", "drop"].forEach(ev =>
+    dropZone.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); }));
+  ["dragenter", "dragover"].forEach(ev =>
+    dropZone.addEventListener(ev, () => dropZone.classList.add("drag")));
+  ["dragleave", "drop"].forEach(ev =>
+    dropZone.addEventListener(ev, () => dropZone.classList.remove("drag")));
+  dropZone.addEventListener("drop", e => {
+    const f = e.dataTransfer?.files?.[0];
+    if (f) setFile(f);
+  });
+
+  // ====== Start audit: upload → create document job → poll ======
+  $("btn-start").addEventListener("click", async () => {
+    if (!state.file) return;
+    $("btn-start").disabled = true;
+    $("btn-start").textContent = "解析中…";
+    try {
+      const fd = new FormData();
+      fd.append("file", state.file);
+      const res = await fetch(`${API}/upload`, {method: "POST", body: fd});
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+      const data = await res.json();
+      state.filename = data.filename || state.file.name;
+      state.content = data.content || "";
+
+      // 创建整份合同审计任务
+      const jobRes = await fetch(`${API}/audit/document`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({content: state.content, filename: state.filename}),
+      });
+      if (!jobRes.ok) throw new Error((await jobRes.json().catch(() => ({}))).detail || jobRes.statusText);
+      const job = await jobRes.json();
+      state.jobId = job.job_id;
+      state.progress = {done: 0, total: job.total};
+
+      enterReview();
+      state.pollTimer = setInterval(pollJob, 2000);
+      pollJob();
+
+      if (data.parse_warning) toast("解析提示: " + data.parse_warning, "error");
+    } catch (e) {
+      toast("处理失败: " + e.message, "error");
+    } finally {
+      $("btn-start").disabled = false;
+      $("btn-start").textContent = "开始审计";
+    }
+  });
+
+  $("btn-back").addEventListener("click", () => {
+    if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
+    state.replaced.clear();
+    showView("landing");
+  });
+
+  // ====== Poll job ======
+  async function pollJob() {
+    if (!state.jobId) return;
+    try {
+      const res = await fetch(`${API}/audit/document/${state.jobId}`);
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+      const data = await res.json();
+      state.status = data.status;
+      state.progress = data.progress;
+      state.clauses = data.clauses || [];
+      state.summary = data.summary || {};
+      if (data.original_content) state.content = data.original_content;
+
+      updateProgressUI();
+
+      if (data.status === "completed") {
+        if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
+        $("rv-progress").classList.add("done");
+        renderDocument();
+        renderComments();
+        paintSummary();
+        toast("审计完成", "success");
+      } else if (data.status === "failed") {
+        if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
+        toast("审计失败", "error");
+      } else {
+        // 运行中，有部分结果也渲染
+        if (state.clauses.length > 0) {
+          renderDocument();
+          renderComments();
+          paintSummary();
+        }
+      }
+    } catch (e) {
+      toast("轮询失败: " + e.message, "error");
+      if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
+    }
+  }
+
+  function updateProgressUI() {
+    const {done, total} = state.progress;
+    $("rv-progress-text").innerHTML = total ? `正在审计 <b>${done} / ${total}</b> 条` : "审计中…";
+    $("rv-progress-fill").style.width = total ? `${(done / total) * 100}%` : "0%";
+  }
+
+  // ====== Enter Review View ======
+  function enterReview() {
+    showView("review");
+    $("rv-title").textContent = state.filename;
+    $("rv-sub").innerHTML = `<span>共 <b>${state.progress.total}</b> 条</span>`;
+    $("doc-body").textContent = state.content || "暂无内容";
+    $("rv-progress").classList.remove("done");
+    updateProgressUI();
+    paintSummary();
+  }
+
+  function paintSummary() {
+    const s = state.summary;
+    const lvl = s.high > 0 ? "high" : (s.mid > 0 ? "mid" : "low");
+    const lvlText = s.high > 0 ? "高风险" : (s.mid > 0 ? "中风险" : "低风险");
+    const ruleHits = state.clauses.reduce((n, c) => n + (c.audit?.rule_hits?.length ? 1 : 0), 0);
+    $("rv-level").textContent = state.status === "completed" ? lvlText : "审计中";
+    $("rv-level").className = "summary-level " + lvl;
+    $("rv-stats").innerHTML = `
+      <div><div class="summary-stat-v">${s.high ?? 0}</div><div class="summary-stat-k">高风险</div></div>
+      <div><div class="summary-stat-v">${s.mid ?? 0}</div><div class="summary-stat-k">中风险</div></div>
+      <div><div class="summary-stat-v">${s.low ?? 0}</div><div class="summary-stat-k">低风险</div></div>
+      <div><div class="summary-stat-v">${ruleHits}</div><div class="summary-stat-k">规则命中</div></div>
+      <div><div class="summary-stat-v">${s.total ?? 0}</div><div class="summary-stat-k">条款</div></div>
+    `;
+  }
+
+  // ====== Render document with inline annotations ======
+  function renderDocument() {
+    const body = $("doc-body");
+    if (!state.content) { body.textContent = "暂无内容"; return; }
+
+    const riskClauses = state.clauses
+      .filter(c => {
+        const lvl = c.audit?.level || "";
+        return lvl.includes("高") || lvl.includes("中");
+      })
+      .sort((a, b) => a.start - b.start);
+
+    let html = "";
+    let cursor = 0;
+
+    for (const c of riskClauses) {
+      if (cursor < c.start) {
+        html += `<span class="doc-normal">${esc(state.content.slice(cursor, c.start))}</span>`;
+      }
+      const displayText = state.replaced.has(c.index) ? (c.audit?.revised_text || c.text) : c.text;
+      const lvl = levelKey(c.audit?.level);
+      const replacedClass = state.replaced.has(c.index) ? " replaced" : "";
+      html += `<span class="clause-risk ${lvl}${replacedClass}" data-index="${c.index}">${esc(displayText)}</span>`;
+      cursor = c.end;
+    }
+
+    if (cursor < state.content.length) {
+      html += `<span class="doc-normal">${esc(state.content.slice(cursor))}</span>`;
+    }
+
+    body.innerHTML = html;
+    body.querySelectorAll(".clause-risk").forEach(el => {
+      el.addEventListener("click", () => focusClause(parseInt(el.dataset.index)));
+    });
+  }
+
+  // ====== Render comments sidebar ======
+  function renderComments() {
+    const riskClauses = state.clauses
+      .filter(c => {
+        const lvl = c.audit?.level || "";
+        return lvl.includes("高") || lvl.includes("中");
+      })
+      .sort((a, b) => a.index - b.index);
+
+    const list = $("comments-list");
+    if (!riskClauses.length) {
+      list.innerHTML = `<div class="comments-empty">${state.status === "completed" ? "审计完成，未发现问题条款。" : "审计完成后，问题条款会出现在这里。"}</div>`;
+      return;
+    }
+
+    list.innerHTML = riskClauses.map(c => commentCard(c)).join("");
+
+    list.querySelectorAll(".btn-replace").forEach(b => {
+      b.addEventListener("click", e => { e.stopPropagation(); replaceClause(parseInt(b.dataset.index)); });
+    });
+    list.querySelectorAll(".btn-undo").forEach(b => {
+      b.addEventListener("click", e => { e.stopPropagation(); undoReplace(parseInt(b.dataset.index)); });
+    });
+    list.querySelectorAll(".btn-adopt").forEach(b => {
+      b.addEventListener("click", e => { e.stopPropagation(); adoptClause(parseInt(b.dataset.index)); });
+    });
+    list.querySelectorAll(".comment").forEach(el => {
+      el.addEventListener("click", () => focusClause(parseInt(el.dataset.index), false));
+    });
+  }
+
+  function commentCard(c) {
+    const a = c.audit;
+    const lk = levelKey(a?.level);
+    const isReplaced = state.replaced.has(c.index);
+    const hits = a?.rule_hits || [];
+    const source = a?.source || "llm_only";
+    const sourceChip = source === "agreement"
+      ? '<span class="source-chip agree">双通道一致</span>'
+      : (source === "conflict"
+        ? '<span class="source-chip conflict">规则冲突</span>'
+        : (hits.length > 0
+          ? '<span class="source-chip rule">规则命中</span>'
+          : '<span class="source-chip">LLM判定</span>'));
+    const ruleHitsHtml = hits.length
+      ? `<div class="rule-hit-box">
+          <strong>规则命中 (${hits.length}条)</strong>
+          ${hits.map(h => `<div class="rule-hit-item">
+            <span class="mono">${esc(h.rule_id)}</span> · ${esc(h.risk_type)} · ${esc(h.matched_pattern)}
+          </div>`).join("")}
+        </div>`
+      : "";
+    return `<article class="comment" data-index="${c.index}">
+      <div class="comment-head">
+        <span class="chip ${lk}"><span class="chip-dot"></span>${esc(a?.level || "中风险")}</span>
+        <span class="chip">${esc(a?.risk_type || "其他")}</span>
+        ${sourceChip}
+        ${a?.need_review ? '<span class="chip review">需复核</span>' : ""}
+      </div>
+      <div class="comment-body">
+        <strong>风险分析</strong>
+        <p>${esc(a?.reason || "").replace(/\n/g, "<br>")}</p>
+        <strong>修改建议</strong>
+        <p>${esc(a?.suggestion || "").replace(/\n/g, "<br>")}</p>
+        ${ruleHitsHtml}
+      </div>
+      <div class="revision-box">
+        <div class="revision-label">修订条款</div>
+        <div>${esc(a?.revised_text || a?.suggestion || "")}</div>
+        <div class="revision-actions">
+          ${isReplaced
+            ? `<button class="btn btn-ghost btn-undo" data-index="${c.index}">撤销替换</button>`
+            : `<button class="btn btn-primary btn-replace" data-index="${c.index}">一键替换</button>`}
+          <button class="btn btn-accent btn-adopt" data-index="${c.index}">采纳</button>
+        </div>
+      </div>
+    </article>`;
+  }
+
+  function focusClause(index, scrollComment = true) {
+    document.querySelectorAll(".clause-risk").forEach(el => el.classList.toggle("active", parseInt(el.dataset.index) === index));
+    document.querySelectorAll(".comment").forEach(el => el.classList.toggle("active", parseInt(el.dataset.index) === index));
+    const target = document.querySelector(`.clause-risk[data-index="${index}"]`);
+    if (target) target.scrollIntoView({behavior: "smooth", block: "center"});
+    if (scrollComment) {
+      const c = document.querySelector(`.comment[data-index="${index}"]`);
+      if (c) c.scrollIntoView({behavior: "smooth", block: "nearest"});
+    }
+  }
+
+  // ====== Replace / Undo ======
+  function replaceClause(index) {
+    state.replaced.add(index);
+    renderDocument();
+    renderComments();
+    toast("已替换", "success");
+  }
+  function undoReplace(index) {
+    state.replaced.delete(index);
+    renderDocument();
+    renderComments();
+    toast("已撤销", "success");
+  }
+
+  // ====== Adopt ======
+  async function adoptClause(index) {
+    const c = state.clauses.find(x => x.index === index);
+    if (!c || !c.audit) return;
+    try {
+      const res = await fetch(`${API}/history/add`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          clause: c.text,
+          risk_type: c.audit.risk_type,
+          risk_level: c.audit.risk_level,
+          suggestion: c.audit.suggestion,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+      const data = await res.json();
+      toast(`已采纳入库，共 ${data.total} 条`, "success");
+    } catch (e) {
+      toast("入库失败: " + e.message, "error");
+    }
+  }
+
+  // ====== Export revised document ======
+  $("btn-export-revised").addEventListener("click", exportRevised);
+  async function exportRevised() {
+    if (!state.content) { toast("无合同内容", "error"); return; }
+    let result = "";
+    let cursor = 0;
+    const sorted = [...state.clauses].sort((a, b) => a.start - b.start);
+    for (const c of sorted) {
+      result += state.content.slice(cursor, c.start);
+      const text = state.replaced.has(c.index) ? (c.audit?.revised_text || c.text) : c.text;
+      result += text;
+      cursor = c.end;
+    }
+    result += state.content.slice(cursor);
+
+    try {
+      const fd = new FormData();
+      fd.append("content", result);
+      fd.append("format_type", "docx");
+      fd.append("filename", state.filename);
+      const res = await fetch(`${API}/export/revised`, {method: "POST", body: fd});
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+      const data = await res.json();
+      const a = document.createElement("a");
+      a.href = `${API}/files/${encodeURIComponent(data.filename)}`;
+      a.download = data.filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      toast("修订版 Word 已生成", "success");
+    } catch (e) {
+      toast("导出失败: " + e.message, "error");
+    }
+  }
+
+  // ====== Drawer ======
+  function openDrawer() { $("drawer").classList.add("show"); $("mask").classList.add("show"); }
+  function closeDrawer() { $("drawer").classList.remove("show"); $("mask").classList.remove("show"); }
+  async function openHistory() {
+    openDrawer();
+    $("drawer-count").textContent = "";
+    $("drawer-body").innerHTML = `<div style="text-align:center;padding:48px;color:var(--text-3);font-size:13px;">加载中…</div>`;
+    try {
+      const res = await fetch(`${API}/history?limit=50`);
+      const data = await res.json();
+      const items = data.items || [];
+      $("drawer-count").textContent = `共 ${data.total ?? items.length} 条`;
+      $("drawer-body").innerHTML = items.length
+        ? items.map(it => `
+            <div class="hist-item">
+              <div class="hi-meta">
+                <span class="chip ${levelKey(it.risk_level)}">${esc(it.risk_level || "")}</span>
+                <span class="chip">${esc(it.risk_type || "")}</span>
+              </div>
+              <div class="hi-c">${esc(it.clause || "")}</div>
+              <div class="hi-s">${esc(it.suggestion || "")}</div>
+            </div>
+          `).join("")
+        : `<div style="text-align:center;padding:60px 20px;color:var(--text-3);font-size:13px;">采纳库为空。在批注上点击「采纳」，这里会出现你的第一条记录。</div>`;
+    } catch (e) {
+      $("drawer-body").innerHTML = `<div style="color:var(--high);padding:24px;font-size:13px;">加载失败: ${esc(e.message)}</div>`;
+    }
+  }
+
+  // ====== Document History ======
+  function openDocDrawer() { $("doc-drawer").classList.add("show"); $("doc-mask").classList.add("show"); }
+  function closeDocDrawer() { $("doc-drawer").classList.remove("show"); $("doc-mask").classList.remove("show"); }
+
+  async function openDocumentHistory() {
+    openDocDrawer();
+    $("doc-drawer-count").textContent = "";
+    $("doc-drawer-body").innerHTML = `<div style="text-align:center;padding:48px;color:var(--text-3);font-size:13px;">加载中…</div>`;
+    try {
+      const res = await fetch(`${API}/history/documents`);
+      const data = await res.json();
+      const items = data.items || [];
+      $("doc-drawer-count").textContent = `共 ${data.total ?? items.length} 条`;
+      if (!items.length) {
+        $("doc-drawer-body").innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--text-3);font-size:13px;">暂无历史合同。完成一次审计后，记录会自动出现在这里。</div>`;
+        return;
+      }
+      $("doc-drawer-body").innerHTML = items.map(it => `
+        <div class="doc-hist-item" onclick="loadDocumentHistory('${esc(it.doc_id)}')">
+          <div class="doc-hist-name">${esc(it.filename || "未命名合同")}</div>
+          <div class="doc-hist-meta">
+            <span class="doc-hist-date">${formatDate(it.created_at)}</span>
+            <div class="doc-hist-stats">
+              <span class="chip high"><span class="chip-dot"></span>${it.high_count ?? 0}</span>
+              <span class="chip mid"><span class="chip-dot"></span>${it.mid_count ?? 0}</span>
+              <span class="chip low"><span class="chip-dot"></span>${it.low_count ?? 0}</span>
+              <span class="chip">${it.clause_count ?? 0} 条</span>
+            </div>
+          </div>
+        </div>
+      `).join("");
+    } catch (e) {
+      $("doc-drawer-body").innerHTML = `<div style="color:var(--high);padding:24px;font-size:13px;">加载失败: ${esc(e.message)}</div>`;
+    }
+  }
+
+  window.loadDocumentHistory = async function(docId) {
+    try {
+      const res = await fetch(`${API}/history/documents/${encodeURIComponent(docId)}`);
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+      const data = await res.json();
+      // Populate state and switch to review view
+      state.filename = data.filename || "历史合同";
+      state.content = data.original_content || "";
+      state.clauses = data.clauses || [];
+      state.summary = data.summary || {};
+      state.status = "completed";
+      state.progress = {done: state.clauses.length, total: state.clauses.length};
+      state.replaced.clear();
+      state.jobId = null;
+      if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
+      closeDocDrawer();
+      enterReview();
+      $("rv-progress").classList.add("done");
+      renderDocument();
+      renderComments();
+      paintSummary();
+      toast("已加载历史合同", "success");
+    } catch (e) {
+      toast("加载失败: " + e.message, "error");
+    }
+  };
+
+  function formatDate(ts) {
+    if (!ts) return "";
+    const d = new Date(ts * 1000);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+  }
+
+  // ====== Health ======
+  async function openHealth() {
+    $("health-modal").classList.add("show");
+    $("health-mask").classList.add("show");
+    $("health-list").innerHTML = `<div style="color: var(--text-3); text-align:center; padding: 16px;">检测中…</div>`;
+    try {
+      const res = await fetch(`${API}/health`);
+      const d = await res.json();
+      const row = (label, ok, extra = "") => `
+        <div class="health-row">
+          <span>${label}</span>
+          <span class="h-status ${ok ? "h-ok" : "h-fail"}">
+            <span class="h-dot"></span>${ok ? "正常" : "异常"}${extra ? `<span style="color: var(--text-3); margin-left: 6px; font-weight: 400;">${esc(extra)}</span>` : ""}
+          </span>
+        </div>`;
+      $("health-list").innerHTML = `
+        ${row("大语言模型 (Qwen-Plus)", d.llm, d.llm_error || "")}
+        ${row("向量知识库", d.vector_db, d.vector_db_error || "")}
+        ${row("历史采纳库", d.historical_db, d.historical_db_error || "")}
+        <div class="health-row">
+          <span>已加载规则</span>
+          <span class="h-status" style="color: var(--text);">${d.rules_loaded ?? 0} 条</span>
+        </div>
+        <div class="health-row">
+          <span>历史条目</span>
+          <span class="h-status" style="color: var(--text);">${d.historical_count ?? 0} 条</span>
+        </div>
+      `;
+    } catch (e) {
+      $("health-list").innerHTML = `<div class="health-row" style="color: var(--high);">连接失败: ${esc(e.message)}</div>`;
+    }
+  }
+  function closeHealth() { $("health-modal").classList.remove("show"); $("health-mask").classList.remove("show"); }
+
+  // ====== Config Modal ======
+  function openConfig() {
+    $("config-modal").classList.add("show");
+    $("config-mask").classList.add("show");
+    $("config-status").className = "config-status";
+    $("config-status").textContent = "";
+    loadConfig();
+  }
+  function closeConfig() {
+    $("config-modal").classList.remove("show");
+    $("config-mask").classList.remove("show");
+  }
+  async function loadConfig() {
+    try {
+      const res = await fetch(`${API}/config`);
+      if (!res.ok) throw new Error("获取配置失败");
+      const data = await res.json();
+      $("cfg-base-url").value = data.base_url || "";
+      $("cfg-model").value = data.model || "";
+      // API Key 不填充，保持空白（安全）
+      $("cfg-api-key").value = "";
+      $("cfg-api-key").placeholder = data.api_key_masked ? `当前: ${data.api_key_masked}` : "输入您的 API Key";
+    } catch (e) {
+      $("cfg-api-key").placeholder = "输入您的 API Key";
+    }
+  }
+  async function saveConfig() {
+    const apiKey = $("cfg-api-key").value.trim();
+    const baseUrl = $("cfg-base-url").value.trim();
+    const model = $("cfg-model").value.trim();
+    const body = {};
+    if (apiKey) body.api_key = apiKey;
+    if (baseUrl) body.base_url = baseUrl;
+    if (model) body.model = model;
+    if (Object.keys(body).length === 0) {
+      toast("至少填写一项配置", "error");
+      return;
+    }
+    const statusEl = $("config-status");
+    statusEl.className = "config-status";
+    statusEl.textContent = "保存中…";
+    try {
+      const res = await fetch(`${API}/config`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "保存失败");
+      statusEl.className = "config-status ok";
+      statusEl.textContent = `配置已更新: ${data.config.model || ""} @ ${data.config.base_url || ""}`;
+      toast("配置已保存", "success");
+      $("cfg-api-key").value = "";
+      // 更新 placeholder 以反映新配置
+      if (data.config.api_key_masked) {
+        $("cfg-api-key").placeholder = `当前: ${data.config.api_key_masked}`;
+      }
+    } catch (e) {
+      statusEl.className = "config-status err";
+      statusEl.textContent = "保存失败: " + e.message;
+      toast("配置保存失败: " + e.message, "error");
+    }
+  }
+
+  // ====== Rule Management ======
+  function openRuleDrawer() { $("rule-drawer").classList.add("show"); $("rule-mask").classList.add("show"); }
+  function closeRuleDrawer() { $("rule-drawer").classList.remove("show"); $("rule-mask").classList.remove("show"); $("rule-drawer-body").innerHTML = ""; }
+
+  async function loadRules() {
+    openRuleDrawer();
+    $("rule-drawer-count").textContent = "";
+    $("rule-drawer-body").innerHTML = `<div style="text-align:center;padding:48px;color:var(--text-3);font-size:13px;">加载中…</div>`;
+    try {
+      const res = await fetch(`${API}/rules`);
+      const data = await res.json();
+      const items = data.items || [];
+      window._ruleItems = items;
+      $("rule-drawer-count").textContent = `共 ${data.total ?? items.length} 条`;
+      renderRuleList(items);
+    } catch (e) {
+      $("rule-drawer-body").innerHTML = `<div style="color:var(--high);padding:24px;font-size:13px;">加载失败: ${esc(e.message)}</div>`;
+    }
+  }
+
+  function renderRuleList(items) {
+    const testBox = `
+      <div class="test-box">
+        <div style="font-weight:600;font-size:13px;margin-bottom:10px;">快速测试</div>
+        <div class="field">
+          <label>正则表达式</label>
+          <input type="text" id="test-pattern" placeholder="输入正则或关键词…">
+        </div>
+        <div class="field" style="margin-top:10px;">
+          <label>测试文本</label>
+          <textarea id="test-clause" rows="2" placeholder="输入待匹配的条款文本…"></textarea>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px;">
+          <button class="btn btn-accent" onclick="testPattern()">测试匹配</button>
+          <button class="btn btn-primary" onclick="showRuleForm()">+ 新增规则</button>
+        </div>
+        <div id="test-result"></div>
+      </div>
+    `;
+
+    if (!items.length) {
+      $("rule-drawer-body").innerHTML = testBox + `<div style="text-align:center;padding:40px 20px;color:var(--text-3);font-size:13px;">暂无规则。点击上方「新增规则」创建第一条。</div>`;
+      return;
+    }
+
+    const rows = items.map(r => `
+      <tr>
+        <td>${esc(r.rule_id)}</td>
+        <td><span class="chip ${levelKey(r.risk_level)}">${esc(r.risk_level)}</span></td>
+        <td>${esc(r.clause_type)}</td>
+        <td class="mono" title="${esc(r.pattern)}">${esc(r.pattern)}</td>
+        <td>
+          <div class="rule-actions">
+            <button onclick="editRule('${esc(r.rule_id)}')">编辑</button>
+            <button class="danger" onclick="deleteRule('${esc(r.rule_id)}')">删除</button>
+          </div>
+        </td>
+      </tr>
+    `).join("");
+
+    $("rule-drawer-body").innerHTML = testBox + `
+      <table class="rule-table">
+        <thead><tr><th>ID</th><th>等级</th><th>类型</th><th>正则</th><th>操作</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+  }
+
+  window.testPattern = async function() {
+    const pattern = $("test-pattern").value.trim();
+    const clause = $("test-clause").value.trim();
+    const box = $("test-result");
+    if (!pattern || !clause) { box.innerHTML = `<div class="test-result err">请填写正则和测试文本</div>`; return; }
+    try {
+      const res = await fetch(`${API}/rules/test`, {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({pattern, clause}),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "测试失败");
+      box.innerHTML = data.hit
+        ? `<div class="test-result hit">命中: 「${esc(data.matched)}」</div>`
+        : `<div class="test-result miss">未命中</div>`;
+    } catch (e) {
+      box.innerHTML = `<div class="test-result err">${esc(e.message)}</div>`;
+    }
+  };
+
+  window.showRuleForm = function(ruleId = "") {
+    const isEdit = !!ruleId;
+    const items = (window._ruleItems || []);
+    const existing = isEdit ? items.find(r => r.rule_id === ruleId) : null;
+
+    const formHtml = `
+      <div style="margin-bottom:16px;">
+        <button class="btn btn-ghost" onclick="renderRuleList(window._ruleItems)">← 返回列表</button>
+      </div>
+      <div class="rule-form">
+        <div class="field">
+          <label>规则 ID</label>
+          <input type="text" id="f-rule-id" value="${esc(existing?.rule_id || "")}" placeholder="如: R_021">
+        </div>
+        <div class="field">
+          <label>条款类型</label>
+          <input type="text" id="f-clause-type" value="${esc(existing?.clause_type || "")}" placeholder="如: 违约责任">
+        </div>
+        <div class="field">
+          <label>正则表达式</label>
+          <input type="text" id="f-pattern" value="${esc(existing?.pattern || "")}" placeholder="如: 违约金.*不超过.*20%">
+          <small>支持 Python re 语法。可用 <code>.*</code> 模糊匹配。</small>
+        </div>
+        <div class="field">
+          <label>风险等级</label>
+          <select id="f-risk-level">
+            <option value="高" ${existing?.risk_level === "高" ? "selected" : ""}>高</option>
+            <option value="中" ${existing?.risk_level === "中" || !existing ? "selected" : ""}>中</option>
+            <option value="低" ${existing?.risk_level === "低" ? "selected" : ""}>低</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>命中原因</label>
+          <textarea id="f-reason" rows="2" placeholder="命中此规则时的风险说明">${esc(existing?.reason || "")}</textarea>
+        </div>
+        <div class="field">
+          <label>修改建议</label>
+          <textarea id="f-suggestion" rows="2" placeholder="命中此规则时的修改建议">${esc(existing?.suggestion || "")}</textarea>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:4px;">
+          <button class="btn btn-primary" onclick="saveRule('${esc(ruleId)}')">${isEdit ? "保存" : "创建"}</button>
+          <button class="btn btn-ghost" onclick="renderRuleList(window._ruleItems)">取消</button>
+        </div>
+      </div>
+    `;
+    $("rule-drawer-body").innerHTML = formHtml;
+  };
+
+  window.saveRule = async function(oldId) {
+    const payload = {
+      rule_id: $("f-rule-id").value.trim(),
+      clause_type: $("f-clause-type").value.trim(),
+      pattern: $("f-pattern").value.trim(),
+      risk_level: $("f-risk-level").value,
+      reason: $("f-reason").value.trim(),
+      suggestion: $("f-suggestion").value.trim(),
+    };
+    if (!payload.rule_id || !payload.pattern) { toast("ID 和正则不能为空", "error"); return; }
+    try {
+      const url = oldId ? `${API}/rules/${encodeURIComponent(oldId)}` : `${API}/rules`;
+      const method = oldId ? "PUT" : "POST";
+      const res = await fetch(url, {method, headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload)});
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "保存失败");
+      toast(oldId ? "规则已更新" : "规则已创建", "success");
+      await refreshRules();
+    } catch (e) {
+      toast("保存失败: " + e.message, "error");
+    }
+  };
+
+  window.editRule = async function(ruleId) {
+    try {
+      const res = await fetch(`${API}/rules`);
+      const data = await res.json();
+      window._ruleItems = data.items || [];
+      showRuleForm(ruleId);
+    } catch (e) { toast("加载失败: " + e.message, "error"); }
+  };
+
+  window.deleteRule = async function(ruleId) {
+    if (!confirm(`确定删除规则 「${ruleId}」 吗？`)) return;
+    try {
+      const res = await fetch(`${API}/rules/${encodeURIComponent(ruleId)}`, {method: "DELETE"});
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "删除失败");
+      toast("规则已删除", "success");
+      await refreshRules();
+    } catch (e) { toast("删除失败: " + e.message, "error"); }
+  };
+
+  async function refreshRules() {
+    try {
+      const res = await fetch(`${API}/rules`);
+      const data = await res.json();
+      window._ruleItems = data.items || [];
+      $("rule-drawer-count").textContent = `共 ${data.total ?? data.items.length} 条`;
+      renderRuleList(window._ruleItems);
+    } catch (e) { toast("刷新失败: " + e.message, "error"); }
+  }
+
+  // Wire navigation
+  $("btn-rules").onclick = loadRules;
+  $("btn-documents").onclick = openDocumentHistory;
+  $("btn-history").onclick = openHistory;
+  $("btn-health").onclick = openHealth;
+  $("btn-config").onclick = openConfig;
+  $("drawer-close").onclick = closeDrawer;
+  $("mask").onclick = closeDrawer;
+  $("rule-drawer-close").onclick = closeRuleDrawer;
+  $("rule-mask").onclick = closeRuleDrawer;
+  $("doc-drawer-close").onclick = closeDocDrawer;
+  $("doc-mask").onclick = closeDocDrawer;
+  $("health-close").onclick = closeHealth;
+  $("health-mask").onclick = closeHealth;
+  $("config-close").onclick = closeConfig;
+  $("config-mask").onclick = closeConfig;
+  $("config-save").onclick = saveConfig;
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") { closeDrawer(); closeRuleDrawer(); closeDocDrawer(); closeHealth(); closeConfig(); }
+  });
+</script>
+</body>
+</html>
